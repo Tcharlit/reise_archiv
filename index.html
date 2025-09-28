@@ -1,0 +1,304 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Archiv — Reise Vlogs</title>
+  <style>
+    :root{
+      --bg: #ffffff;
+      --accent: #111;
+      --max-width: 900px;
+      --gap: 60px;
+      --visible-count: 5; /* initial visible items */
+    }
+    html,body{height:100%;}
+    body{
+      margin:0;
+      background:var(--bg);
+      font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color:var(--accent);
+      -webkit-font-smoothing:antialiased;
+      -moz-osx-font-smoothing:grayscale;
+    }
+
+    /* Top-left label */
+    .label{
+      position:fixed;
+      left:24px;
+      top:18px;
+      font-weight:500;
+      letter-spacing:1px;
+      z-index:40;
+      font-size:20px;
+      pointer-events:none;
+    }
+
+    /* decorative PNG that lies over the white background */
+    .decor{
+       position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 90vw;
+        background-position: center;
+        z-index: 0;
+        user-select: none;
+        pointer-events: none;
+    }
+
+    
+
+    /* carousel stage centering */
+    .stage{
+      position:relative;
+      width:100%;
+      height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      perspective:1400px;
+      perspective-origin:50% 40%;
+      z-index:10;
+    }
+
+    /* viewport that will contain items stacked in 3D */
+    .viewport{
+      width:100%;
+      height:100%;
+      position:relative;
+      transform-style:preserve-3d;
+      will-change:transform;
+    }
+
+    .item {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%) translateY(0) translateZ(0) scale(1);
+        border-radius: 0; /* kein Rundungszwang, PNG übernimmt die Form */
+        overflow: visible; /* wichtig, damit der Schatten sichtbar bleibt */
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent; /* Hintergrund transparent lassen */
+    }
+
+    .item img{
+      width: 100%;  
+      object-fit: contain; /* PNG bleibt unverzerrt */
+      display:block;
+      pointer-events:none;
+      user-select:none;
+        }
+
+    .item:hover img {
+      filter: drop-shadow(0 34px 80px rgba(0, 17, 253, 0.703));
+    }
+
+   
+
+
+
+   /* vorderstes Bild ganz unten */
+    .item.center {
+    transform: translate(-50%, -50%) translateY(120px) translateZ(0px);
+    opacity: 1;
+    z-index: 30;
+    }
+
+    /* items behind center progressively smaller and farther away */
+    /* zweites Bild etwas weiter hinten, höher */
+    .item.pos-1 {
+    transform: translate(-50%, -50%) translateY(60px) translateZ(0px) ;
+    opacity: 1;
+    z-index: 20;
+    }
+
+    /* drittes Bild noch weiter hinten, noch höher */
+    .item.pos-2 {
+    transform: translate(-50%, -50%) translateY(0px) translateZ(0px) ;
+    opacity: 1;
+    z-index: 15;
+    }
+
+    /* viertes Bild */
+    .item.pos-3 {
+    transform: translate(-50%, -50%) translateY(-60px) translateZ(0px);
+    opacity: 0.65;
+    z-index: 10;
+    }
+
+    /* fünftes Bild */
+    .item.pos-4 {
+    transform: translate(-50%, -50%) translateY(-120px) translateZ(0px) ;
+    opacity: 0.5;
+    z-index: 5;
+    }
+
+    /* faded out when not visible */
+    .item.hidden{ opacity:0; pointer-events:none; filter: blur(2px); }
+
+    /* fade-in animation when an item becomes center */
+    .item.fade-in{ animation: fadeIn 600ms ease both; }
+    @keyframes fadeIn{ from{ opacity:0; transform: translate(-50%,-50%) translateZ(0px) scale(0.98);} to{ opacity:1; } }
+
+
+    /* small responsive tweaks */
+    @media (max-width:700px){
+      :root{ --item-width:320px; --item-height:180px; }
+      .decor{ width:80vw; }
+    }
+
+    /* small instruction */
+    .hint{
+      position:fixed;
+      right:18px;
+      bottom:18px;
+      font-size:13px;
+      color:#666;
+      z-index:40;
+      user-select:none;
+    }
+
+    /* accessibility: focus styles */
+    .item:focus{ outline:3px solid rgba(0,0,0,0.08); }
+
+    .rotating-image {
+    position: fixed; /* Immer relativ zum Bildschirm */
+    top: 20px;       /* Abstand von oben */
+    right: 20px;     /* Abstand von rechts */
+    width: 100px;    /* Größe des Bildes */
+    height: 100px;
+    transform-origin: center center; /* Drehpunkt in der Mitte */
+    animation: rotate 10s linear infinite; /* Drehanimation */
+    z-index: 9999;   /* Immer im Vordergrund */
+  }
+
+  /* Die Dreh-Animation */
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+
+</style>
+</head>
+<body>
+  <div class="label">Archiv</div>
+
+  <!-- decorative PNG over the background -->
+  <img class="decor" src="images/Nulli.png" alt="Dekoratives Muster" />
+
+  <main class="stage" id="stage">
+    <div class="viewport" id="viewport" aria-live="polite">
+      <!-- Items: replace src and data-link with your images and YouTube links -->
+      <a class="item" href="https://youtu.be/EYqg05DR10Q" data-src="/images/img1.png" data-link="https://www.youtube.com/watch?v=VIDEOID1" tabindex="0">
+        <img src="images/vhs.png" alt="Vlog 1" loading="eager" class="size-vhs"/>
+      </a>
+      <a class="item" href="https://youtu.be/yhshbJSbLd0" data-src="/images/img2.png" data-link="https://www.youtube.com/watch?v=VIDEOID2" tabindex="0">
+        <img src="images/usb.png" alt="Vlog 2" loading="lazy" class="size-usb"/>
+      </a>
+      <a class="item" href="https://youtu.be/Sf2mCzJcUPo" data-src="/images/img3.png" data-link="https://www.youtube.com/watch?v=VIDEOID3" tabindex="0">
+        <img src="images/cd.png" alt="Vlog 3" loading="lazy" class="size-cd"/>
+      </a>
+      <a class="item" href="https://youtu.be/wksp5JwvBE8" data-src="/images/img4.png" data-link="https://www.youtube.com/watch?v=VIDEOID4" tabindex="0">
+        <img src="images/film.png" alt="Vlog 4" loading="lazy" class="size-film"/>
+      </a>
+      <a class="item" href="https://youtu.be/t9R3kI9coVU" data-src="/images/img5.png" data-link="https://www.youtube.com/watch?v=VIDEOID5" tabindex="0">
+        <img src="images/lochkarte.png" alt="Vlog 5" loading="lazy" class="size-karte"/>
+      </a>
+     <!---- <a class="item" href="https://www.youtube.com/watch?v=VIDEOID5" data-src="/images/img5.png" data-link="https://www.youtube.com/watch?v=VIDEOID5" tabindex="0">
+        <img src="images/sd.png" alt="Vlog 6" loading="lazy" class="size-sd"/>
+      </a> --->
+    </div>
+  </main>
+
+  <img src="images/Nulli+Priesemut.png" alt="Drehendes PNG" class="rotating-image">
+
+  <div class="hint">Scrolle durch unser Reise-Archiv — Klick für's Video </div>
+
+
+
+<script>
+(function(){
+  const viewport = document.getElementById('viewport');
+  const originalItems = Array.from(viewport.querySelectorAll('.item'));
+  const itemCount = originalItems.length;
+
+  const spacing = 160;       // Abstand zwischen Bildern
+  const fadeDistance = 400;  // Distanz für subtilen Fade
+  let scrollPos = 0;         // simulierte Scrollposition
+  let touchStartY = null;
+
+  // clone items für endloses Scrollen
+  originalItems.forEach(el => {
+    const clone = el.cloneNode(true);
+    viewport.appendChild(clone);
+  });
+
+  const allItems = Array.from(viewport.querySelectorAll('.item'));
+
+  function updatePositions() {
+    const centerY = window.innerHeight / 2;
+
+    allItems.forEach((el, i) => {
+      // zyklische Position
+      let y = ((i * spacing) - scrollPos) % (itemCount * spacing);
+      if (y < -spacing) y += itemCount * spacing;
+
+      const offset = y - centerY;
+
+      // subtile Opazität
+      const opacity = 1 - Math.min(Math.abs(offset) / fadeDistance, 0.5);
+
+      // Scale leicht abhängig vom Abstand zum Zentrum
+      const scale = 0.8 + 0.2 * (1 - Math.min(Math.abs(offset) / fadeDistance, 1));
+
+      el.style.transform = `translate(-50%, -50%) translateY(${offset}px) scale(${scale})`;
+      el.style.opacity = opacity;
+      el.style.zIndex = Math.floor(100 - Math.abs(offset)); // vorne/dahinter
+    });
+  }
+
+  // Wheel / Scroll
+  function onWheel(e){
+    e.preventDefault();
+    scrollPos += e.deltaY * 0.5; // scroll-Geschwindigkeit
+    updatePositions();
+  }
+
+  // Touch / Swipe
+  function onTouchStart(e){ touchStartY = e.touches[0].clientY; }
+  function onTouchMove(e){
+    if(touchStartY === null) return;
+    const delta = touchStartY - e.touches[0].clientY;
+    scrollPos += delta;
+    touchStartY = e.touches[0].clientY;
+    updatePositions();
+  }
+  function onTouchEnd(){ touchStartY = null; }
+
+  // Animation für kontinuierliches smooth Parallax
+  function animate(){
+    scrollPos += 0.2; // automatische langsame Bewegung
+    updatePositions();
+    requestAnimationFrame(animate);
+  }
+
+  // Event listeners
+  window.addEventListener('wheel', onWheel, {passive:false});
+  window.addEventListener('touchstart', onTouchStart, {passive:true});
+  window.addEventListener('touchmove', onTouchMove, {passive:true});
+  window.addEventListener('touchend', onTouchEnd, {passive:true});
+  window.addEventListener('resize', updatePositions);
+
+  // Initial render
+  updatePositions();
+  animate();
+})();
+
+</script>
+
+</body>
+</html>
