@@ -11,8 +11,15 @@
       --max-width: 900px;
       --gap: 60px;
       --visible-count: 5; /* initial visible items */
+      --item-size: 280px;
     }
-    html,body{height:100%;}
+    html,body{
+        height: 100%;
+        margin: 0;
+        overscroll-behavior-y: contain; /* verhindert Pull-to-Refresh */
+        touch-action: none; /* keine Browser-Gesten wie "zurück wischen" */
+    }
+    
     body{
       margin:0;
       background:var(--bg);
@@ -21,6 +28,27 @@
       -webkit-font-smoothing:antialiased;
       -moz-osx-font-smoothing:grayscale;
     }
+
+    
+    #fullscreen-bg {
+        position: fixed;
+
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: url("images/collage.jpg") top center / cover no-repeat;
+        z-index: 1;        /* unter dem Rotating-Image, aber über allem anderen */
+        opacity: 0;
+        pointer-events: none; /* unsichtbar und nicht klickbar */
+        transition: opacity 0.4s ease;
+    }
+
+    #fullscreen-bg.active {
+        opacity: 1;
+        pointer-events: auto; /* jetzt klickbar */
+    }
+        
 
     /* Top-left label */
     .label{
@@ -36,7 +64,7 @@
 
     /* decorative PNG that lies over the white background */
     .decor{
-       position: fixed;
+        position: fixed;
         top: 50%;
         left: 50%;
         transform: translate(-50%, -50%);
@@ -91,7 +119,13 @@
       display:block;
       pointer-events:none;
       user-select:none;
-        }
+    }
+
+     /* small responsive tweaks */
+    @media (max-width:700px){
+      :root{--item-size: 350px;}
+      .decor{ width:80vw; }
+    }
 
     .item:hover img {
       filter: drop-shadow(0 34px 80px rgba(0, 17, 253, 0.703));
@@ -145,11 +179,7 @@
     @keyframes fadeIn{ from{ opacity:0; transform: translate(-50%,-50%) translateZ(0px) scale(0.98);} to{ opacity:1; } }
 
 
-    /* small responsive tweaks */
-    @media (max-width:700px){
-      :root{ --item-width:320px; --item-height:180px; }
-      .decor{ width:80vw; }
-    }
+   
 
     /* small instruction */
     .hint{
@@ -166,15 +196,17 @@
     .item:focus{ outline:3px solid rgba(0,0,0,0.08); }
 
     .rotating-image {
-    position: fixed; /* Immer relativ zum Bildschirm */
-    top: 20px;       /* Abstand von oben */
-    right: 20px;     /* Abstand von rechts */
-    width: 100px;    /* Größe des Bildes */
-    height: 100px;
-    transform-origin: center center; /* Drehpunkt in der Mitte */
-    animation: rotate 10s linear infinite; /* Drehanimation */
-    z-index: 9999;   /* Immer im Vordergrund */
-  }
+        position: fixed; /* Immer relativ zum Bildschirm */
+        top: 20px;       /* Abstand von oben */
+        right: 20px;     /* Abstand von rechts */
+        width: 100px;    /* Größe des Bildes */
+        height: 100px;
+        transform-origin: center center; /* Drehpunkt in der Mitte */
+        animation: rotate 10s linear infinite; /* Drehanimation */
+        z-index: 9999;   /* Immer im Vordergrund */
+        filter: drop-shadow(0 5px 30px rgb(0, 17, 255));   
+        cursor: pointer;
+     }
 
   /* Die Dreh-Animation */
   @keyframes rotate {
@@ -186,6 +218,8 @@
 </head>
 <body>
   <div class="label">Archiv</div>
+
+  <div id="fullscreen-bg"></div>
 
   <!-- decorative PNG over the background -->
   <img class="decor" src="images/Nulli.png" alt="Dekoratives Muster" />
@@ -226,77 +260,122 @@
   const originalItems = Array.from(viewport.querySelectorAll('.item'));
   const itemCount = originalItems.length;
 
-  const spacing = 160;       // Abstand zwischen Bildern
-  const fadeDistance = 400;  // Distanz für subtilen Fade
-  let scrollPos = 0;         // simulierte Scrollposition
-  let touchStartY = null;
+  const spacing = 160;       // Abstand zwischen Items
+  const fadeDistance = 400;  // für Opazität/Scale
 
-  // clone items für endloses Scrollen
+  let scrollPos = 0;
+  let velocity = 0;          // für Momentum/Inertia
+  let isTouching = false;
+  let touchStartY = null;
+  let lastTouchY = null;
+  let lastMoveTime = null;
+
+  // clone items für Endlos-Effekt
   originalItems.forEach(el => {
     const clone = el.cloneNode(true);
     viewport.appendChild(clone);
   });
-
   const allItems = Array.from(viewport.querySelectorAll('.item'));
 
+  // Positionen updaten
   function updatePositions() {
     const centerY = window.innerHeight / 2;
 
     allItems.forEach((el, i) => {
-      // zyklische Position
       let y = ((i * spacing) - scrollPos) % (itemCount * spacing);
       if (y < -spacing) y += itemCount * spacing;
 
       const offset = y - centerY;
-
-      // subtile Opazität
       const opacity = 1 - Math.min(Math.abs(offset) / fadeDistance, 0.5);
-
-      // Scale leicht abhängig vom Abstand zum Zentrum
       const scale = 0.8 + 0.2 * (1 - Math.min(Math.abs(offset) / fadeDistance, 1));
 
       el.style.transform = `translate(-50%, -50%) translateY(${offset}px) scale(${scale})`;
       el.style.opacity = opacity;
-      el.style.zIndex = Math.floor(100 - Math.abs(offset)); // vorne/dahinter
+      el.style.zIndex = Math.floor(100 - Math.abs(offset));
     });
   }
 
-  // Wheel / Scroll
+  // Wheel-Scroll (Laptop/Desktop)
   function onWheel(e){
     e.preventDefault();
-    scrollPos += e.deltaY * 0.5; // scroll-Geschwindigkeit
-    updatePositions();
+    velocity += e.deltaY * 0.2; // scroll-Geschwindigkeit
   }
 
-  // Touch / Swipe
-  function onTouchStart(e){ touchStartY = e.touches[0].clientY; }
-  function onTouchMove(e){
-    if(touchStartY === null) return;
-    const delta = touchStartY - e.touches[0].clientY;
-    scrollPos += delta;
+  // Touchsteuerung mit Momentum
+  function onTouchStart(e){
+    isTouching = true;
+    velocity = 0; // Inertia zurücksetzen
     touchStartY = e.touches[0].clientY;
+    lastTouchY = touchStartY;
+    lastMoveTime = Date.now();
+  }
+
+  function onTouchMove(e){
+    const y = e.touches[0].clientY;
+    const delta = lastTouchY - y;
+    scrollPos += delta;
+
+    const now = Date.now();
+    const dt = now - lastMoveTime;
+    if (dt > 0) {
+      velocity = delta / dt * 16; // Pixel pro Frame (16ms ≈ 60fps)
+    }
+
+    lastTouchY = y;
+    lastMoveTime = now;
     updatePositions();
   }
-  function onTouchEnd(){ touchStartY = null; }
 
-  // Animation für kontinuierliches smooth Parallax
+  function onTouchEnd(){
+    isTouching = false;
+    touchStartY = null;
+    lastTouchY = null;
+  }
+
+  // Animation-Loop
   function animate(){
-    scrollPos += 0.2; // automatische langsame Bewegung
+    if (!isTouching) {
+      // Inertia auslaufen lassen
+      scrollPos += velocity;
+      velocity *= 0.95; // Reibung
+      if (Math.abs(velocity) < 0.01) velocity = 0;
+
+      // Autoscroll, wenn keine Bewegung aktiv
+      if (velocity === 0) {
+        scrollPos += 0.2; 
+      }
+    }
+
     updatePositions();
     requestAnimationFrame(animate);
   }
 
-  // Event listeners
+  // Events
   window.addEventListener('wheel', onWheel, {passive:false});
   window.addEventListener('touchstart', onTouchStart, {passive:true});
-  window.addEventListener('touchmove', onTouchMove, {passive:true});
+  window.addEventListener('touchmove', onTouchMove, {passive:false});
   window.addEventListener('touchend', onTouchEnd, {passive:true});
   window.addEventListener('resize', updatePositions);
 
-  // Initial render
+  // Initial
   updatePositions();
   animate();
+
+  // WICHTIG: CSS fix gegen Pull-to-Refresh & Gesten
+  document.documentElement.style.overscrollBehaviorY = "contain";
+  document.documentElement.style.touchAction = "none";
+  document.body.style.overscrollBehaviorY = "contain";
+  document.body.style.touchAction = "none";
 })();
+
+
+  const rotatingImage = document.querySelector('.rotating-image');
+  const fullscreenBg = document.getElementById('fullscreen-bg');
+
+  rotatingImage.addEventListener('click', () => {
+    fullscreenBg.classList.toggle('active');
+  });
+
 
 </script>
 
